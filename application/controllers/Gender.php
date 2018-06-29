@@ -41,14 +41,20 @@ class Gender extends MY_Controller {
         $this->load->model('base_model');
         $this->base_model->set_aliases($this->table_alias_map);
         $this->base_model->set_req_tables($requested_tables);
-        
-        if ($_GET) {
-            parse_str($_SERVER['QUERY_STRING'], $params);
-            $results = $this->base_model->get_tables_by_params($params);
-        } else if (isset($id)) {
-            $results = $this->base_model->get_tables_by_id($id);
-        } else {
-            $results = $this->base_model->get_tables();
+        try {
+            if ($_GET) {
+                parse_str($_SERVER['QUERY_STRING'], $params);
+                if (array_key_exists("facility", $params)) {
+                    $params = array_merge($this->base_model->get_missing_object_names($params["facility"]), $params);
+                }
+                $results = $this->base_model->get_tables_by_params($params);
+            } else if (isset($id)) {
+                $results = $this->base_model->get_tables_by_id($id);
+            } else {
+                $results = $this->base_model->get_tables();
+            }
+        } catch (Exception $e) {
+            $results = array("error" => $e->getMessage());
         }
         echo json_encode($results);
     }
@@ -78,7 +84,14 @@ class Gender extends MY_Controller {
         $this->base_model->set_req_tables($requested_tables);
         
         $params = json_decode(file_get_contents('php://input'), true);
-        $results = $this->base_model->insert_params($params);
+        try {
+            if (array_key_exists("facility", $params)) {
+                $params = array_merge($this->base_model->get_missing_object_names($params["facility"]), $params);
+            }
+            $results = $this->base_model->insert_params($params);
+        } catch (Exception $e) {
+            $results = array("error" => $e->getMessage());
+        }
         echo json_encode($results);
     }
     
@@ -104,7 +117,11 @@ class Gender extends MY_Controller {
         $this->base_model->set_req_tables($requested_tables);
         
         $params = json_decode(file_get_contents('php://input'), true);
-        $results = $this->base_model->update_with_params($params, $id);
+        try {
+            $results = $this->base_model->update_with_params($params, $id);
+        } catch (Exception $e) {
+            $results = array("error" => $e->getMessage());
+        }
         echo json_encode($results);
     }
     

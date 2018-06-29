@@ -26,14 +26,18 @@ class DB_Util {
      * @param [] $params - Associative array to select entries where column-value equals key-value in array for all entries in array
      * @return String - The unbound sql to be run
      */
-    public function create_select_by_param_sql($table, $params)
+    public function create_select_by_param_sql($table, $params, $foreign_id_columns = array())
     {
         $sql = "SELECT * FROM $table WHERE ";
         $prepend_value = "";
         $foreign_columns_info = $this->get_foreign_columns_info($table);
         foreach ($params as $column => $value) {
             if (array_key_exists($column, $foreign_columns_info)) {
-                $sql .= $prepend_value . $column . " = (SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE name = ?) ";
+                if (array_key_exists($column, $foreign_id_columns)) {
+                    $sql .= $prepend_value . $column . " = (SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE " . $foreign_id_columns[$column] . " = ?) ";
+                } else {
+                    $sql .= $prepend_value . $column . " = (SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE name = ?) ";
+                }
             } else {
                 $sql .= $prepend_value . $column . " = ? ";
             }
@@ -48,7 +52,7 @@ class DB_Util {
      * @param [] $params - Associative array to select entries where column-value equals key-value in array for all entries in array
      * @return String - The unbound sql to be run
      */
-    public function create_insert_sql($table, $params)
+    public function create_insert_sql($table, $params, $foreign_id_columns = array())
     {        
         $sql = "INSERT INTO $table (";
         $columns_sql = "";
@@ -58,7 +62,11 @@ class DB_Util {
         foreach ($params as $column => $value) {
             if (array_key_exists($column, $foreign_columns_info)) {
                 $columns_sql .= $prepend_value . $column;
-                $values_sql .= $prepend_value . "(SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE name = ?)";
+                if (array_key_exists($column, $foreign_id_columns)) {
+                    $values_sql .= $prepend_value . "(SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE " . $foreign_id_columns[$column] . " = ?)";
+                } else {
+                    $values_sql .= $prepend_value . "(SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE name = ?)";
+                }
             } else {
                 $columns_sql .= $prepend_value . $column;
                 $values_sql .= $prepend_value . " ? ";
@@ -74,14 +82,18 @@ class DB_Util {
      * @param [] $params - Associative array to select entries where column-value equals key-value in array for all entries in array
      * @return String - The unbound sql to be run
      */
-    public function create_update_sql($table, $params)
+    public function create_update_sql($table, $params, $foreign_id_columns = array())
     {
         $sql = "UPDATE $table SET ";
         $prepend_value = "";
         $foreign_columns_info = $this->get_foreign_columns_info($table);
         foreach ($params as $column => $value) {
             if (array_key_exists($column, $foreign_columns_info)) {
-                $sql .= $prepend_value . $column . " = (SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE name = ?)";
+                if (array_key_exists($column, $foreign_id_columns)) {
+                    $sql .= $prepend_value . $column . " = (SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE " . $foreign_id_columns[$column] . " = ?)";
+                } else {
+                    $sql .= $prepend_value . $column . " = (SELECT ID FROM " . $foreign_columns_info[$column] . " WHERE name = ?)";
+                }
             } else {
                 $sql .= $prepend_value . $column . " = ? ";
             }
@@ -118,7 +130,7 @@ class DB_Util {
     public function get_foreign_columns_info($table)
     {
         $result = array();
-        $sql = "SELECT COLUMN_NAME,  REFERENCED_TABLE_NAME
+        $sql = "SELECT COLUMN_NAME, REFERENCED_TABLE_NAME
                     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
                     WHERE CONSTRAINT_SCHEMA = SCHEMA()
                     AND TABLE_NAME = '$table'
@@ -130,6 +142,29 @@ class DB_Util {
             $result[$row['COLUMN_NAME']] = $row['REFERENCED_TABLE_NAME'];
         }
         return $result;
+    }
+    
+    public function create_get_name_by_facility_code_sql()
+    {
+        $sql = "SELECT fac.name as facility,
+                    lab.name as lab,
+                    par.name as partner,
+                    dis.name as subcounty,
+                    cou.name as county,
+                    pro.name as province
+                FROM facilitys fac
+                JOIN labs lab 
+                    ON lab.ID = fac.lab
+                JOIN partners par
+                    ON par.ID = fac.partner
+                JOIN districts dis
+                    ON dis.ID = fac.district
+                JOIN countys cou
+                    ON cou.ID = dis.county
+                JOIN provinces pro
+                    ON pro.ID = dis.province
+                WHERE fac.facilitycode = ?";
+        return $sql;
     }
     
 }
